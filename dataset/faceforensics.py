@@ -3,6 +3,11 @@ import numpy as np
 from os.path import join
 from dataset import AbstractDataset
 
+from torch.utils.data import DataLoader
+from CustomDataset import CustomDataset
+from torchvision.transforms import transforms
+
+
 METHOD = ['all', 'Deepfakes', 'Face2Face', 'FaceSwap', 'NeuralTextures']
 SPLIT = ['train', 'val', 'test']
 COMP2NAME = {'c0': 'raw', 'c23': 'c23', 'c40': 'c40'}
@@ -14,7 +19,7 @@ class FaceForensics(AbstractDataset):
     FaceForensics++ Dataset proposed in "FaceForensics++: Learning to Detect Manipulated Facial Images"
     """
 
-    def __init__(self, cfg, seed=2022, transforms=None, transform=None, target_transform=None):
+    def __init__(self, cfg, seed=2022, transformss=None, transform=None, target_transform=None):
         # pre-check
         if cfg['split'] not in SPLIT:
             raise ValueError(f"split should be one of {SPLIT}, "
@@ -26,35 +31,58 @@ class FaceForensics(AbstractDataset):
             raise ValueError(f"compression should be one of {COMP2NAME.keys()}, "
                              f"but found {cfg['compression']}.")
         super(FaceForensics, self).__init__(
-            cfg, seed, transforms, transform, target_transform)
+            cfg, seed, transformss, transform, target_transform)
         print(f"Loading data from 'FF++ {cfg['method']}' of split '{cfg['split']}' "
               f"and compression '{cfg['compression']}'\nPlease wait patiently...")
 
         self.categories = ['original', 'fake']
-        # load the path of dataset images
-        indices = join(self.root, cfg['split'] + "_" + cfg['compression'] + ".pickle")
-        indices = torch.load(indices)
-        if cfg['method'] == "all":
-            # full dataset
-            self.images = [join(cfg['root'], _[0]) for _ in indices]
-            self.targets = [_[1] for _ in indices]
+        #load the path of dataset images
+        #indices = join(self.root, cfg['split'] + "_" + cfg['compression'] + ".pickle") 
+        print('cfg: ', cfg['split'])
+        if cfg['split'] == 'train':
+            img_list = '/data/ywang/Xception/txt_files/train_paper_label.txt' #???
+        elif cfg['split'] == 'val':
+            img_list = '/data/ywang/Xception/txt_files/validation_paper_label.txt'
         else:
-            # specific manipulated method
-            self.images = list()
-            self.targets = list()
-            nums = 0
-            for _ in indices:
-                if cfg['method'] in _[0]:
-                    self.images.append(join(cfg['root'], _[0]))
-                    self.targets.append(_[1])
-                nums = len(self.targets)
-            ori = list()
-            for _ in indices:
-                if "original_sequences" in _[0]:
-                    ori.append(join(cfg['root'], _[0]))
-            choices = np.random.choice(ori, size=nums, replace=False)
-            self.images.extend(choices)
-            self.targets.extend([0] * nums)
+            img_list = None
+        print('img_list: ', img_list)
+
+        f = open(img_list)
+        lines = f.readlines()
+        for line in lines:
+            img_path = line.strip().split(' ')[0]
+            label = int(line.strip().split(' ')[1])
+            self.images.append(img_path)
+            self.targets.append(label)
+        f.close()
+            
+        # #indices = torch.load(indices)
+        # if cfg['method'] == "all": p判断
+        #     # full dataset
+        #     #self.images = [join(cfg['root'], _[0]) for _ in indices] #/data/ywang/FaceForensics
+        #     #self.targets = [_[1] for _ in indices] ##???
+        #     #加载数据
+        #     for _, data in enumerate(train_dataloader):
+        #         self.images, self.targets = data
+        #         self.targets = self.targets[0]
+        # else:
+        #     # specific manipulated method
+        #     self.images = list()
+        #     self.targets = list()
+        #     nums = 0
+        #     for _ in indices:
+        #         if cfg['method'] in _[0]:
+        #             self.images.append(join(cfg['root'], _[0]))
+        #             self.targets.append(_[1])
+        #         nums = len(self.targets)
+        #     ori = list()
+        #     for _ in indices:
+        #         print(_[0])
+        #         if "original_sequences" in _[0]:
+        #             ori.append(join(cfg['root'], _[0]))
+        #     choices = np.random.choice(ori, size=nums, replace=False)
+        #     self.images.extend(choices)
+        #     self.targets.extend([0] * nums)
         print("Data from 'FF++' loaded.\n")
         print(f"Dataset contains {len(self.images)} images.\n")
 
@@ -68,7 +96,36 @@ if __name__ == '__main__':
     config = config["train_cfg"]
     # config = config["test_cfg"]
 
+
+    # train_filename='/data/ywang/Xception/txt_files/train_paper_label.txt' 
+    # image_dir='/data/ywang/XceptionExtract'
+    
+    # batch_size=8  
+
+    # transform = transforms.Compose([
+    #     transforms.ToPILImage(),
+    #     transforms.Resize((299, 299)),
+    #     transforms.ToTensor(),
+    #     transforms.Normalize([0.5] * 3, [0.5] * 3)])
+
+    # train_data = CustomDataset(annotations_file=train_filename, image_dir=image_dir,repeat=1, transform=transform)
+    # val_data = CustomDataset(annotations_file=val_filename, image_dir=image_dir,repeat=1, transform=transform)
+    # train_dataloader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
+    # val_dataloader = DataLoader(dataset=val_data, batch_size=batch_size, shuffle=False)
+
+    
+
     def run_dataset():
+        # train_data = CustomDataset(annotations_file=train_filename, image_dir=image_dir,repeat=1, transform=transform)
+        # train_dataloader = DataLoader(dataset=train_data, batch_size=batch_size, shuffle=True)
+
+        # print(f"dataset: {len(train_dataloader)}")
+        # for i, _ in enumerate(train_dataloader):
+        #     path, target = _
+        #     print(f"path: {path}, target: {target}")
+        #     if i >= 9:
+        #         break
+
         dataset = FaceForensics(config)
         print(f"dataset: {len(dataset)}")
         for i, _ in enumerate(dataset):
@@ -76,6 +133,7 @@ if __name__ == '__main__':
             print(f"path: {path}, target: {target}")
             if i >= 9:
                 break
+
 
 
     def run_dataloader(display_samples=False):
@@ -103,5 +161,5 @@ if __name__ == '__main__':
     # run the functions below #
     ###########################
 
-    # run_dataset()
+    #run_dataset()
     run_dataloader(False)

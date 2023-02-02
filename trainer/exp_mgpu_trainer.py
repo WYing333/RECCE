@@ -34,7 +34,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
             print(content)
 
     def _initiated_settings(self, model_cfg=None, data_cfg=None, config_cfg=None):
-        self.local_rank = config_cfg["local_rank"]
+        self.local_rank = config_cfg["local_rank"] #recce.yml
 
     def _train_settings(self, model_cfg, data_cfg, config_cfg):
         # debug mode: no log dir, no train_val operation.
@@ -49,11 +49,11 @@ class ExpMultiGpuTrainer(AbstractTrainer):
         if self.eval_metric == LEGAL_METRIC[-1]:
             self.best_metric = 1.0e8
 
-        # distribution
-        dist.init_process_group(config_cfg["distribute"]["backend"])
+        # # distribution
+        # dist.init_process_group(config_cfg["distribute"]["backend"])
 
-        # load training dataset
-        train_dataset = data_cfg["file"]
+        # load training dataset  ##
+        train_dataset = data_cfg["file"] ##faceforensics.yml
         branch = data_cfg["train_branch"]
         name = data_cfg["name"]
         with open(train_dataset, "r") as f:
@@ -61,11 +61,11 @@ class ExpMultiGpuTrainer(AbstractTrainer):
         train_options = options[branch]
         self.train_set = load_dataset(name)(train_options)
         # define training sampler
-        self.train_sampler = data.distributed.DistributedSampler(self.train_set)
+        self.train_sampler = data.distributed.DistributedSampler(self.train_set, num_replicas=config_cfg["world_size"], rank=config_cfg["rank"])
         # wrapped with data loader
         self.train_loader = data.DataLoader(self.train_set, shuffle=False,
                                             sampler=self.train_sampler,
-                                            num_workers=data_cfg.get("num_workers", 4),
+                                            num_workers=data_cfg.get("num_workers", 0),
                                             batch_size=data_cfg["train_batch_size"])
 
         if self.local_rank == 0:
@@ -74,7 +74,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
             self.val_set = load_dataset(name)(val_options)
             # wrapped with data loader
             self.val_loader = data.DataLoader(self.val_set, shuffle=True,
-                                              num_workers=data_cfg.get("num_workers", 4),
+                                              num_workers=data_cfg.get("num_workers", 1), #4
                                               batch_size=data_cfg["val_batch_size"])
 
         self.resume = config_cfg.get("resume", False)
@@ -83,11 +83,13 @@ class ExpMultiGpuTrainer(AbstractTrainer):
             time_format = "%Y-%m-%d...%H.%M.%S"
             run_id = time.strftime(time_format, time.localtime(time.time()))
             self.run_id = config_cfg.get("id", run_id)
-            self.dir = os.path.join("runs", self.model_name, self.run_id)
+            self.dir = os.path.join("runs1", self.model_name, self.run_id)
 
             if self.local_rank == 0:
                 if not self.resume:
                     if os.path.exists(self.dir):
+                        print(self.resume)
+                        print(self.dir)
                         raise ValueError("Error: given id '%s' already exists." % self.run_id)
                     os.makedirs(self.dir, exist_ok=True)
                     print(f"Writing config file to file directory: {self.dir}.")
@@ -117,8 +119,11 @@ class ExpMultiGpuTrainer(AbstractTrainer):
         self.model = load_model(self.model_name)(**model_cfg)
         self.model = torch.nn.SyncBatchNorm.convert_sync_batchnorm(self.model).to(self.device)
         self._mprint(f"Using SyncBatchNorm.")
-        self.model = torch.nn.parallel.DistributedDataParallel(
-            self.model, device_ids=[self.local_rank], find_unused_parameters=True)
+        if config_cfg["world_size"] > 1:
+            self.model = torch.nn.parallel.DistributedDataParallel(
+                self.model, device_ids=[self.local_rank], find_unused_parameters=True)
+        else:
+            self.model = self.model
 
         # load optimizer
         optim_cfg = config_cfg.get("optimizer", None)
@@ -240,6 +245,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
                     self.recons_loss_meter.update(reduce_tensor(recons_loss).item())
                     self.contra_loss_meter.update(reduce_tensor(contra_loss).item())
                     iter_acc = reduce_tensor(self.acc_meter.mean_acc()).item()
+                    # add AUC
 
                     if self.local_rank == 0:
                         if global_step % self.log_steps == 0 and writer is not None:
@@ -279,6 +285,8 @@ class ExpMultiGpuTrainer(AbstractTrainer):
                 if self.local_rank == 0:
                     train_generator.close()
                     print()
+                
+                ###time.sleep(0.03)
             # training ends with integer epochs
             if self.local_rank == 0:
                 if writer is not None:

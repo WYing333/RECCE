@@ -97,16 +97,6 @@ def test_full_image_network(video_path, model_path, output_path,
     # Face detector
     face_detector = dlib.get_frontal_face_detector() ##功能：人脸检测画框 参数：无 返回值：默认的人脸检测器
 
-    # Load model
-    model, *_ = model_selection(modelname='xception', num_out_classes=2)  ##model
-    if model_path is not None:
-        model = torch.load(model_path)
-        print('Model found in {}'.format(model_path))
-    else:
-        print('No model found, initializing random model.')
-    if cuda:
-        model = model.cuda()
-
     # Frame numbers and length of output video
     frame_num = 0
     assert start_frame < num_frames - 1
@@ -137,15 +127,14 @@ def test_full_image_network(video_path, model_path, output_path,
             # Face crop with dlib and bounding box scale enlargement
             x, y, size = get_boundingbox(face, width, height)
             cropped_face = image[y:y+size, x:x+size]
-
-            # Actual prediction using our model
-            ###prediction, output = predict_with_model(cropped_face, model,cuda=cuda)
             # ------------------------------------------------------------------
 
             ####
             #print(video_path.split('/')[-1].split('.')[0])
-            save_dir = join(output_path, video_path.split('/')[4], video_path.split('/')[5], video_path.split('/')[6], video_path.split('/')[7],
-                            video_path.split('/')[-1].split('.')[0])
+            #save_dir = join(output_path, video_path.split('/')[4], video_path.split('/')[5], video_path.split('/')[6], video_path.split('/')[7],
+                            #video_path.split('/')[-1].split('.')[0])
+            save_dir = join(output_path, video_path.split('/')[4], video_path.split('/')[5], video_path.split('/')[-1].split('.')[0])
+
             if not os.path.isdir(save_dir):
                 os.makedirs(save_dir)
             #print(save_dir)
@@ -187,4 +176,4 @@ if __name__ == '__main__':
 
 
  
-#python extract_from_video.py -i /data/ywang/DFDC/test/0/aaqkmjtoby.mp4 -o /data/ywang/DFDCExtract --cuda
+#python extract_from_video.py -i /data/ywang/DFDC/test/0/ -o /data/ywang/DFDCExtract/ --cuda

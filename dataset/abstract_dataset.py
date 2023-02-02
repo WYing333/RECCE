@@ -32,9 +32,12 @@ class AbstractDataset(VisionDataset):
         return path, tgt
 
     def load_item(self, items):
+        cv2.setNumThreads(0)
+        cv2.ocl.setUseOpenCL(False)
         images = list()
         for item in items:
-            img = cv2.imread(item)
+            #print(item) tensor
+            img = cv2.imread(item) #filename
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             image = self.transforms(image=img)['image']
             images.append(image)

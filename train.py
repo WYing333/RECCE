@@ -13,7 +13,7 @@ def arg_parser():
                         type=str,
                         default="/home/ywang/RECCE/config/Recce.yml",
                         help="Specified the path of configuration file to be used.")
-    parser.add_argument("--local_rank", default=0,
+    parser.add_argument("--local_rank", default=2,
                         type=int,
                         help="Specified the node rank for distributed training.")
     return parser.parse_args()
@@ -27,7 +27,7 @@ if __name__ == '__main__':
         world_size = int(os.environ['WORLD_SIZE'])
         print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
         torch.cuda.set_device(int(os.environ['LOCAL_RANK']))
-        torch.distributed.init_process_group(backend='nccl', init_method='env://', timeout=datetime.timedelta(seconds=36000), world_size=world_size, rank=rank) #481320
+        torch.distributed.init_process_group(backend='nccl', init_method='env://', timeout=datetime.timedelta(seconds=540000), world_size=world_size, rank=rank) #481320 previous train:36000
         torch.distributed.barrier()
         device = torch.device(int(os.environ['LOCAL_RANK']))
     else:

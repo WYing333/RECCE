@@ -23,10 +23,35 @@ class DFDC(AbstractDataset):
         self.root = cfg['root']
         self.num_real = 0
         self.num_fake = 0
+        #print("root",  self.root) ##
+
+        # if cfg['split'] == 'train':
+        #     img_list = '/home/ywang/dfdc_train_imcomplete.txt'
+        # elif cfg['split'] == 'val':
+        #     img_list = '/home/ywang/dfdc_validation.txt'
+        # elif cfg['split'] == 'test':
+        #     img_list = '/home/ywang/dfdc_test.txt'
+        # else:
+        #     img_list = None
+        # print('img_list: ', img_list)
+
+        # f = open(img_list)
+        # lines = f.readlines()
+        # for line in lines:
+        #     /data/ywang/DFDCExtract/test/aamrozxzsq/191.jpg
+        #     img_path = line.strip().split(' ')[0]
+        #     label = int(line.strip().split(' ')[1])
+        #     self.images.append(img_path)
+        #     self.targets.append(label)
+        # f.close()
+
+        #print("split", self.split)
         if self.split == "test":
             self.__load_test_data()
         elif self.split == "train":
             self.__load_train_data()
+        elif self.split == "val":
+            self.__load_val_data()
         assert len(self.images) == len(self.targets), "Length of images and targets not the same!"
         print(f"Data from 'DFDC' loaded.")
         print(f"Real: {self.num_real}, Fake: {self.num_fake}.")
@@ -34,6 +59,7 @@ class DFDC(AbstractDataset):
 
     def __load_test_data(self):
         label_path = join(self.root, "test", "labels.csv")
+        print("test label_path", label_path)##
         with open(label_path, encoding="utf-8") as file:
             content = file.readlines()
         for _ in content:
@@ -41,7 +67,11 @@ class DFDC(AbstractDataset):
                 key = _.split(".")[0]
                 label = _.split(",")[1].strip()
                 label = int(label)
-                imgs = glob(join(self.root, "test", "images", key, "*.png"))
+                #print("key", key)##
+                #print("label", label)##
+                #imgs = glob(join(self.root, "test", "images", key, "*.png"))
+                imgs = glob(join("/data/ywang/DFDCExtract", "test", key, "*.jpg")) ##png
+                ##self.root, "test", "images", key, "*.jpg"
                 num = len(imgs)
                 self.images.extend(imgs)
                 self.targets.extend([label] * num)
@@ -51,18 +81,65 @@ class DFDC(AbstractDataset):
                     self.num_fake += num
 
     def __load_train_data(self):
-        train_folds = glob(join(self.root, "dfdc_train_part_*"))
+        train_folds = glob(join(self.root, "train", "dfdc_train_part_*")) ##add train
+        #print("train_folds", train_folds)
         for fold in train_folds:
             fold_imgs = list()
             fold_tgts = list()
+            #metadata_path = join(self.root, "test", "metadata.json")
             metadata_path = join(fold, "metadata.json")
+            #print("train metadata_path", metadata_path)##
             try:
                 with open(metadata_path, "r", encoding="utf-8") as file:
                     metadata = json.loads(file.readline())
+                    #print("metadata:", metadata)##
                 for k, v in metadata.items():
                     index = k.split(".")[0]
                     label = LABEL_MAP[v["label"]]
-                    imgs = glob(join(fold, "images", index, "*.png"))
+                    #print("index", index)##
+                    #print("label", label)##
+                    #imgs = glob(join(fold, "images", index, "*.png"))
+                    imgs = glob(join("/data/ywang/DFDCExtract", "train", index, "*.jpg")) ##
+                    
+                    #print("img", imgs)
+                    fold_imgs.extend(imgs)
+                    fold_tgts.extend([label] * len(imgs))
+                    if label == 0:
+                        self.num_real += len(imgs)
+                    elif label == 1:
+                        self.num_fake += len(imgs)
+
+                imgs_str = str(fold_imgs)
+                #print(imgs_str)
+                # with open("dfdc_train_imgs.txt","w") as f:
+                #     f.write(imgs_str) 
+                self.images.extend(fold_imgs)
+                self.targets.extend(fold_tgts)
+            except FileNotFoundError:
+                continue
+
+
+    def __load_val_data(self): ##train分出一部分当val
+        val_folds = glob(join(self.root, "train", "dfdc_val_part_*")) 
+        #print("train_folds", train_folds)
+        for fold in val_folds:
+            fold_imgs = list()
+            fold_tgts = list()
+            #metadata_path = join(self.root, "test", "metadata.json")
+            metadata_path = join(fold, "metadata.json")
+            #print("train metadata_path", metadata_path)##
+            try:
+                with open(metadata_path, "r", encoding="utf-8") as file:
+                    metadata = json.loads(file.readline())
+                    #print("metadata:", metadata)##
+                for k, v in metadata.items():
+                    index = k.split(".")[0]
+                    label = LABEL_MAP[v["label"]]
+                    #print("index", index)##
+                    #print("label", label)##
+                    #imgs = glob(join(fold, "images", index, "*.png"))
+                    imgs = glob(join("/data/ywang/DFDCExtract", "train", index, "*.jpg")) ##
+                    #print("img", imgs)
                     fold_imgs.extend(imgs)
                     fold_tgts.extend([label] * len(imgs))
                     if label == 0:
@@ -74,11 +151,34 @@ class DFDC(AbstractDataset):
             except FileNotFoundError:
                 continue
 
+        # label_path = join(self.root, "validation", "labels.csv")
+        # print("val label_path", label_path)##
+        # with open(label_path, encoding="utf-8") as file:
+        #     content = file.readlines()
+        # for _ in content:
+        #     if ".mp4" in _:
+        #         key = _.split(".")[0]
+        #         label = _.split(",")[1].strip()
+        #         label = int(label)
+        #         #print("key", key)##
+        #         #print("label", label)##
+        #         imgs = glob(join("/data/ywang/DFDCExtract", "validation", key, "*.png"))
+        #         #glob(join(self.root, "test", key, "*.jpg")) ##png
+        #         ##self.root, "test", "images", key, "*.jpg"
+        #         num = len(imgs)
+        #         self.images.extend(imgs)
+        #         self.targets.extend([label] * num)
+        #         if label == 0:
+        #             self.num_real += num
+        #         elif label == 1:
+        #             self.num_fake += num
+
+
 
 if __name__ == '__main__':
     import yaml
 
-    config_path = "../config/dataset/dfdc.yml"
+    config_path = "/home/ywang/RECCE/config/dataset/dfdc.yml"
     with open(config_path) as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
     config = config["train_cfg"]
@@ -122,3 +222,6 @@ if __name__ == '__main__':
 
     # run_dataset()
     run_dataloader(False)
+
+
+#现在是0 没load进来

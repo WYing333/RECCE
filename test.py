@@ -3,6 +3,7 @@ import argparse
 
 from trainer import ExpTester
 
+import os
 
 def arg_parser():
     parser = argparse.ArgumentParser(description="config")
@@ -27,5 +28,6 @@ if __name__ == '__main__':
     with open(config) as config_file:
         config = yaml.load(config_file, Loader=yaml.FullLoader)
 
+   
     trainer = ExpTester(config, stage="Test")
     trainer.test(display_images=arg.display)

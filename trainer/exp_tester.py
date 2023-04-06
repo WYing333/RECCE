@@ -50,7 +50,7 @@ class ExpTester(AbstractTrainer):
         self.test_loader = data.DataLoader(self.test_set, shuffle=False,
                                            batch_size=self.test_batch_size)
         self.run_id = config_cfg["id"]
-        self.ckpt_fold = config_cfg.get("ckpt_fold", "runs")
+        self.ckpt_fold = config_cfg.get("ckpt_fold", "runs_DFDC_try") ##
         self.dir = os.path.join(self.ckpt_fold, self.model_name, self.run_id)
 
         # load model
@@ -61,7 +61,7 @@ class ExpTester(AbstractTrainer):
         self.loss_criterion = get_loss(config_cfg.get("loss", None))
 
         # redirect the std out stream
-        sys.stdout = Logger(os.path.join(self.dir, "test_result.txt"))
+        sys.stdout = Logger(os.path.join(self.dir, "test_result_DFDConAll1.txt"))
         print('Run dir: {}'.format(self.dir))
 
         center_print('Test configurations begins')
@@ -70,14 +70,17 @@ class ExpTester(AbstractTrainer):
         center_print('Test configurations ends')
 
         self.ckpt = config_cfg.get("ckpt", "best_model")
-        self._load_ckpt(best=True, train=False)
+        self._load_ckpt(best=True, train=False) ##best Ture
 
     def _save_ckpt(self, step, best=False):
         # Not used.
         raise NotImplementedError("The function is not intended to be used here.")
 
     def _load_ckpt(self, best=False, train=False):
-        load_dir = os.path.join(self.dir, self.ckpt + ".bin" if best else "latest_model.bin")
+        ##load_dir = os.path.join(self.dir, self.ckpt + ".bin" if best else "latest_model.bin")
+        ##runs1/Recce/FF++c23/best_model.bin
+        load_dir = "/home/ywang/RECCE/runs_DFDC_try/Recce/DFDC/best_model_16000.bin" ##
+        #print(self.device) #cuda:2
         load_dict = torch.load(load_dir, map_location=self.device)
         self.start_step = load_dict["step"]
         self.best_step = load_dict["best_step"]

@@ -65,7 +65,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
         # wrapped with data loader
         self.train_loader = data.DataLoader(self.train_set, shuffle=False,
                                             sampler=self.train_sampler,
-                                            num_workers=data_cfg.get("num_workers", 4), ##0
+                                            num_workers=data_cfg.get("num_workers", 0),
                                             batch_size=data_cfg["train_batch_size"])
 
         if self.local_rank == 0:
@@ -74,7 +74,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
             self.val_set = load_dataset(name)(val_options)
             # wrapped with data loader
             self.val_loader = data.DataLoader(self.val_set, shuffle=True,
-                                              num_workers=data_cfg.get("num_workers", 4), ##1
+                                              num_workers=data_cfg.get("num_workers", 1), #4
                                               batch_size=data_cfg["val_batch_size"])
 
         self.resume = config_cfg.get("resume", False)
@@ -83,7 +83,7 @@ class ExpMultiGpuTrainer(AbstractTrainer):
             time_format = "%Y-%m-%d...%H.%M.%S"
             run_id = time.strftime(time_format, time.localtime(time.time()))
             self.run_id = config_cfg.get("id", run_id)
-            self.dir = os.path.join("runs_DFDC_try", self.model_name, self.run_id) ##
+            self.dir = os.path.join("runs_F2F_clip", self.model_name, self.run_id) ##
 
             if self.local_rank == 0:
                 if not self.resume:
@@ -235,10 +235,32 @@ class ExpMultiGpuTrainer(AbstractTrainer):
                         loss += self.lambda_1 * recons_loss + self.lambda_2 * contra_loss
 
                     grad_scalar.scale(loss).backward()
+                    # for param in self.model.parameters():
+                    #     print(param.grad.isinf().any())
+                    # for param in self.model.parameters():
+                    #     print("grad=%s" % (param.grad.item()))
+
+                    
+                    # # 1. 先看loss是不是nan,如果loss是nan,那么说明可能是在forward的过程中出现了第一条列举的除0或者log0的操作
+                    # assert torch.isnan(loss).sum() == 0, print(loss)
+                   
+                    # 2. 如果loss不是nan,那么说明forward过程没问题，可能是梯度爆炸，所以用梯度裁剪试试
+                    torch.nn.utils.clip_grad_norm_(parameters=self.model.parameters(), max_norm=1, norm_type=2) ##
+                   
+                    # # 3.1 在step之前，判断参数是不是nan, 如果不是判断step之后是不是nan
+                    # assert torch.isnan(self.model.mu).sum() == 0, print(self.model.mu)
+
+                    
+                   
                     grad_scalar.step(self.optimizer)
                     grad_scalar.update()
                     if self.warmup_step == 0 or global_step > self.warmup_step:
                         self.scheduler.step()
+
+                    # # 3.2 在step之后判断，参数和其梯度是不是nan，如果3.1不是nan,而3.2是nan,
+                    # # 特别是梯度出现了Nan,考虑学习速率是否太大，调小学习速率或者换个优化器试试。
+                    # assert torch.isnan(self.model.mu).sum() == 0, print(self.model.mu)
+                    # assert torch.isnan(self.model.mu.grad).sum() == 0, print(self.model.mu.grad)
 
                     self.acc_meter.update(Y_pre, Y, self.num_classes == 1)
                     self.loss_meter.update(reduce_tensor(loss).item())
